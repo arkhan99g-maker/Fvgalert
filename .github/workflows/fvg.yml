@@ -1,0 +1,31 @@
+name: XAUUSD FVG Alert
+
+on:
+  schedule:
+    - cron: "3 * * * 0-5"   # har ghante, minute 3 par (UTC), Sun-Fri
+  workflow_dispatch:
+    inputs:
+      test_message:
+        description: "Send test Telegram message"
+        required: false
+        default: "false"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run FVG check
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TEST_MESSAGE: ${{ github.event.inputs.test_message }}
+        run: python fvg_alert.py
