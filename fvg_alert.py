@@ -2,7 +2,7 @@ import os
 import time
 import requests
 
-SYMBOL = "XAUUSD=X"      # Yahoo Finance spot gold
+SYMBOL = "GC=F"      # Yahoo Finance spot gold
 INTERVAL = "1h"
 MIN_GAP = 0.0            # chhote gap ignore karne ke liye (dollars), e.g. 0.5
 
