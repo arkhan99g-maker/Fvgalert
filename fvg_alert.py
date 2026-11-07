@@ -55,7 +55,7 @@ def candles_yahoo():
     last_err = "unknown"
     for attempt in range(3):
         for host in ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]:
-            url = f"https://{host}/v8/finance/chart/EURUSD=X"
+            url = f"https://{host}/v8/finance/chart/GC=F"
             try:
                 r = requests.get(
                     url, params={"interval": "1h", "range": "5d"},
