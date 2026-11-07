@@ -51,11 +51,11 @@ def candles_twelvedata():
 
 
 def candles_yahoo():
-    """Fallback: gold futures GC=F."""
+    """Fallback: gold futures EURUSD=X."""
     last_err = "unknown"
     for attempt in range(3):
         for host in ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]:
-            url = f"https://{host}/v8/finance/chart/GC=F"
+            url = f"https://{host}/v8/finance/chart/EURUSD=X"
             try:
                 r = requests.get(
                     url, params={"interval": "1h", "range": "5d"},
