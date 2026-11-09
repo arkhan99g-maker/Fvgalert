@@ -1,7 +1,8 @@
 name: XAUUSD FVG Alert
 
-# Trigger: cron-job.org (GitHub API se) har ghante minute 2 par.
-# GitHub ka apna schedule jaan boojh kar hata diya hai taake duplicate alerts na aayein.
+# Trigger: cron-job.org (GitHub API se).
+# 1h job: body {"ref":"main"}  -> timeframe default 1h
+# 15m job: body {"ref":"main","inputs":{"timeframe":"15m"}}
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +10,10 @@ on:
         description: "Send test Telegram message"
         required: false
         default: "false"
+      timeframe:
+        description: "1h or 15m"
+        required: false
+        default: "1h"
 
 jobs:
   check:
@@ -29,4 +34,5 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TWELVE_API_KEY: ${{ secrets.TWELVE_API_KEY }}
           TEST_MESSAGE: ${{ github.event.inputs.test_message }}
+          TIMEFRAME: ${{ github.event.inputs.timeframe }}
         run: python fvg_alert.py
