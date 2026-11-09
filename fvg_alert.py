@@ -4,7 +4,23 @@ from datetime import datetime, timezone
 import requests
 
 MIN_GAP = 0.0            # chhote gap ignore karne ke liye (dollars), e.g. 0.5
-MAX_AGE = 5400           # 90 min se purani candle par alert nahi (weekend/stale data)
+
+# Har timeframe ki settings
+TIMEFRAMES = {
+    "1h": {
+        "label": "1H", "yahoo": "1h", "twelve": "1h",
+        "secs": 3600, "max_age": 5400, "range": "5d",
+    },
+    "15m": {
+        "label": "15M", "yahoo": "15m", "twelve": "15min",
+        "secs": 900, "max_age": 1800, "range": "5d",
+    },
+}
+
+TF_KEY = (os.environ.get("TIMEFRAME", "") or "1h").strip().lower()
+if TF_KEY not in TIMEFRAMES:
+    TF_KEY = "1h"
+TF = TIMEFRAMES[TF_KEY]
 
 BOT_TOKEN = os.environ["TELEGRAM_TOKEN"]
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
@@ -25,10 +41,10 @@ def send(msg):
 
 
 def candles_twelvedata():
-    """Spot XAU/USD, 1h candles (UTC)."""
+    """Spot XAU/USD candles (UTC)."""
     params = {
         "symbol": "XAU/USD",
-        "interval": "1h",
+        "interval": TF["twelve"],
         "outputsize": 12,
         "timezone": "UTC",
         "apikey": TD_KEY,
@@ -51,14 +67,14 @@ def candles_twelvedata():
 
 
 def candles_yahoo():
-    """Fallback: gold futures EURUSD=X."""
+    """Gold futures GC=F."""
     last_err = "unknown"
     for attempt in range(3):
         for host in ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]:
             url = f"https://{host}/v8/finance/chart/GC=F"
             try:
                 r = requests.get(
-                    url, params={"interval": "1h", "range": "5d"},
+                    url, params={"interval": TF["yahoo"], "range": TF["range"]},
                     headers=HEADERS, timeout=30,
                 )
                 if r.status_code != 200:
@@ -91,52 +107,54 @@ def get_candles():
 
 
 def main():
-    test = os.environ.get("TEST_MESSAGE") == "true"
+    test = os.environ.get("TEST_MESSAGE", "").strip().lower() == "true"
+    label = TF["label"]
+    secs = TF["secs"]
     if test:
-        send("✅ FVG bot connected. Test message successful.")
+        send(f"✅ FVG bot connected ({label}). Test message successful.")
 
     candles, source = get_candles()
     now = time.time()
-    closed = [c for c in candles if c["t"] + 3600 <= now]  # sirf band candles
+    closed = [c for c in candles if c["t"] + secs <= now]  # sirf band candles
     if len(closed) < 3:
         print("Not enough closed candles")
         return
 
     c1, c2, c3 = closed[-3], closed[-2], closed[-1]
-    close_ts = c3["t"] + 3600
+    close_ts = c3["t"] + secs
     when = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(close_ts))
-    stale = (now - close_ts) > MAX_AGE
+    stale = (now - close_ts) > TF["max_age"]
 
     if stale:
-        print("Latest candle is old (market closed?) - skipping FVG check")
+        print(f"[{label}] Latest candle is old (market closed?) - skipping FVG check")
     # Bullish FVG: candle1 high < candle3 low
     elif c3["l"] > c1["h"] and c3["l"] - c1["h"] > MIN_GAP:
         send(
-            f"🟢 XAUUSD 1H Bullish FVG\n"
+            f"🟢 XAUUSD {label} Bullish FVG\n"
             f"Zone: {c1['h']:.2f} - {c3['l']:.2f}\n"
             f"Gap size: {c3['l'] - c1['h']:.2f}\n"
             f"Candle close: {when}\n"
             f"Source: {source}"
         )
-        print("Bullish FVG sent")
+        print(f"[{label}] Bullish FVG sent")
     # Bearish FVG: candle1 low > candle3 high
     elif c1["l"] > c3["h"] and c1["l"] - c3["h"] > MIN_GAP:
         send(
-            f"🔴 XAUUSD 1H Bearish FVG\n"
+            f"🔴 XAUUSD {label} Bearish FVG\n"
             f"Zone: {c3['h']:.2f} - {c1['l']:.2f}\n"
             f"Gap size: {c1['l'] - c3['h']:.2f}\n"
             f"Candle close: {when}\n"
             f"Source: {source}"
         )
-        print("Bearish FVG sent")
+        print(f"[{label}] Bearish FVG sent")
     else:
-        print("No FVG on latest candle")
+        print(f"[{label}] No FVG on latest candle")
 
     if test:
         note = "\n(Market band hai, candle purani hai)" if stale else ""
         send(
             f"ℹ️ Data OK ({source})\n"
-            f"Latest closed 1H candle: {when}\n"
+            f"Latest closed {label} candle: {when}\n"
             f"High {c3['h']:.2f} / Low {c3['l']:.2f}{note}\n"
             f"(Test run mein FVG nahi bana to sirf yehi message aayega)"
         )
@@ -147,7 +165,7 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         try:
-            send(f"⚠️ FVG bot error: {type(e).__name__}: {e}"[:400])
+            send(f"⚠️ FVG bot error ({TF['label']}): {type(e).__name__}: {e}"[:400])
         except Exception:
             pass
         raise
